@@ -3,22 +3,21 @@ package app
 import (
 	"io"
 	"net/http"
+	"github.com/go-chi/chi/v5"
 )
 
 var ShortURLs = make(map[string]string)
 
-func HandleRequest(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		HandleShorten(w, r)
-	case http.MethodGet:
-		HandleRedirect(w, r)
-	default:
-		http.Error(w, "Unsupported HTTP method", http.StatusBadRequest)
-	}
+func RootRouter() chi.Router {
+	r := chi.NewRouter()
+
+	r.Post("/", handleShorten)
+	r.Get("/{id}", handleRedirect)
+	
+	return r
 }
 
-func HandleShorten(w http.ResponseWriter, r *http.Request) {
+func handleShorten(w http.ResponseWriter, r *http.Request) {
 
 	originalURL, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -36,9 +35,9 @@ func HandleShorten(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(shortenedURL))
 }
 
-func HandleRedirect(w http.ResponseWriter, r *http.Request) {
+func handleRedirect(w http.ResponseWriter, r *http.Request) {
 
-	urlID := r.URL.Path[1:]
+	urlID :=  chi.URLParam(r, "id")  
 	if originalURL, ok := ShortURLs[urlID]; ok {
 		http.Redirect(w, r, originalURL, http.StatusTemporaryRedirect)
 		return

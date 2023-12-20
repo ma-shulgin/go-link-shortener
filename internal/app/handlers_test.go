@@ -2,15 +2,17 @@ package app
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestHandleShortenAndRedirect(t *testing.T) {
-	// Setup
+func TestRootRouter(t *testing.T) {
+
 	originalURL := "https://example.com"
 	urlID := GenerateShortURLID(originalURL)
 	ShortURLs[urlID] = originalURL
@@ -42,7 +44,7 @@ func TestHandleShortenAndRedirect(t *testing.T) {
 			name:         "Wrong URL path",
 			method:       http.MethodGet,
 			path:         "/other/path",
-			expectedCode: http.StatusBadRequest,
+			expectedCode: http.StatusNotFound,
 			expectedBody: "",
 		},
 		{
@@ -56,26 +58,42 @@ func TestHandleShortenAndRedirect(t *testing.T) {
 			name:         "Unsupported Method",
 			method:       http.MethodDelete,
 			path:         "/",
-			expectedCode: http.StatusBadRequest,
+			expectedCode: http.StatusMethodNotAllowed,
 			expectedBody: "",
 		},
 	}
 
+	ts := httptest.NewServer(RootRouter())
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	defer ts.Close()
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			var req *http.Request
+			var err error
+			url := ts.URL + tc.path
+
 			if tc.body != "" {
-				req = httptest.NewRequest(tc.method, tc.path, bytes.NewBufferString(tc.body))
+				req, err = http.NewRequest(tc.method, url, bytes.NewBufferString(tc.body))
 			} else {
-				req = httptest.NewRequest(tc.method, tc.path, nil)
+				req, err = http.NewRequest(tc.method, url, nil)
 			}
-			w := httptest.NewRecorder()
+			require.NoError(t, err)
 
-			HandleRequest(w, req)
+			resp, err := client.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
 
-			assert.Equal(t, tc.expectedCode, w.Code, "Response status code does not match expected")
+			assert.Equal(t, tc.expectedCode, resp.StatusCode, "Response status code does not match expected")
+
 			if tc.expectedBody != "" {
-				assert.Contains(t, w.Body.String(), tc.expectedBody, "Response body does not match expected")
+				body, err := io.ReadAll(resp.Body)
+				require.NoError(t, err)
+				assert.Contains(t, string(body), tc.expectedBody, "Response body does not match expected")
 			}
 		})
 	}
