@@ -63,7 +63,7 @@ func TestRootRouter(t *testing.T) {
 		},
 	}
 
-	ts := httptest.NewServer(RootRouter("http://localhost:8080/"))
+	ts := httptest.NewServer(RootRouter("http://localhost:8080"))
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
