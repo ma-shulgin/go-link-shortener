@@ -31,7 +31,7 @@ func handleShorten(baseURL string) http.HandlerFunc {
 		urlID := GenerateShortURLID(string(originalURL))
 		ShortURLs[urlID] = string(originalURL)
 
-		shortenedURL := baseURL + urlID
+		shortenedURL := baseURL + "/" + urlID
 		w.WriteHeader(http.StatusCreated)
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(shortenedURL))
