@@ -10,9 +10,11 @@ import (
 
 func main() {
 	cfg := config.GetConfig()
-	
+
+	urlStorage := make(map[string]string)
+
 	log.Println("Starting server on ", cfg.ServerAddress)
-	err := http.ListenAndServe(cfg.ServerAddress, app.RootRouter(cfg.BaseURL))
+	err := http.ListenAndServe(cfg.ServerAddress, app.RootRouter(urlStorage, cfg.BaseURL))
 	if err != nil {
 		panic(err)
 	}

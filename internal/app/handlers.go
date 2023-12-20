@@ -7,18 +7,16 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-var ShortURLs = make(map[string]string)
-
-func RootRouter(baseURL string) chi.Router {
+func RootRouter(urlStorage map[string]string, baseURL string) chi.Router {
 	r := chi.NewRouter()
 
-	r.Post("/", handleShorten(baseURL))
-	r.Get("/{id}", handleRedirect)
+	r.Post("/", handleShorten(urlStorage, baseURL))
+	r.Get("/{id}", handleRedirect(urlStorage))
 
 	return r
 }
 
-func handleShorten(baseURL string) http.HandlerFunc {
+func handleShorten(urlStorage map[string]string, baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		originalURL, err := io.ReadAll(r.Body)
@@ -29,7 +27,7 @@ func handleShorten(baseURL string) http.HandlerFunc {
 		r.Body.Close()
 
 		urlID := GenerateShortURLID(string(originalURL))
-		ShortURLs[urlID] = string(originalURL)
+		urlStorage[urlID] = string(originalURL)
 
 		shortenedURL := baseURL + "/" + urlID
 		w.WriteHeader(http.StatusCreated)
@@ -38,13 +36,13 @@ func handleShorten(baseURL string) http.HandlerFunc {
 	}
 }
 
-func handleRedirect(w http.ResponseWriter, r *http.Request) {
-
-	urlID := chi.URLParam(r, "id")
-	if originalURL, ok := ShortURLs[urlID]; ok {
-		http.Redirect(w, r, originalURL, http.StatusTemporaryRedirect)
-		return
+func handleRedirect(urlStorage map[string]string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		urlID := chi.URLParam(r, "id")
+		if originalURL, ok := urlStorage[urlID]; ok {
+			http.Redirect(w, r, originalURL, http.StatusTemporaryRedirect)
+			return
+		}
+		http.Error(w, "Bad request", http.StatusBadRequest)
 	}
-
-	http.Error(w, "Bad request", http.StatusBadRequest)
 }

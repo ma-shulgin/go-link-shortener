@@ -13,9 +13,20 @@ import (
 
 func TestRootRouter(t *testing.T) {
 
+	//TOASK : If i need to set everything up in each test
+	//	or i can set up just once
 	originalURL := "https://example.com"
 	urlID := GenerateShortURLID(originalURL)
-	ShortURLs[urlID] = originalURL
+	urlStorage := make(map[string]string)
+	urlStorage[urlID] = originalURL
+
+	ts := httptest.NewServer(RootRouter(urlStorage, "http://localhost:8080"))
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	defer ts.Close()
 
 	testCases := []struct {
 		name         string
@@ -62,14 +73,6 @@ func TestRootRouter(t *testing.T) {
 			expectedBody: "",
 		},
 	}
-
-	ts := httptest.NewServer(RootRouter("http://localhost:8080"))
-	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-	defer ts.Close()
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
