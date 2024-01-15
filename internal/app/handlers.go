@@ -4,11 +4,13 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/ma-shulgin/go-link-shortener/internal/logger"
 	"github.com/go-chi/chi/v5"
 )
 
 func RootRouter(urlStorage map[string]string, baseURL string) chi.Router {
 	r := chi.NewRouter()
+	r.Use(logger.WithLogging)
 
 	r.Post("/", handleShorten(urlStorage, baseURL))
 	r.Get("/{id}", handleRedirect(urlStorage))
