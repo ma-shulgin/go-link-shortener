@@ -13,6 +13,7 @@ import (
 func RootRouter(urlStorage map[string]string, baseURL string) chi.Router {
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging)
+	r.Use(gzipMiddleware)
 
 	r.Post("/", handleShorten(urlStorage, baseURL))
 	r.Get("/{id}", handleRedirect(urlStorage))
@@ -34,8 +35,8 @@ func handleShorten(urlStorage map[string]string, baseURL string) http.HandlerFun
 		urlStorage[urlID] = string(originalURL)
 
 		shortenedURL := baseURL + "/" + urlID
-		w.WriteHeader(http.StatusCreated)
 		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(shortenedURL))
 	}
 }
@@ -66,7 +67,7 @@ func handleAPIShorten(urlStorage map[string]string, baseURL string) http.Handler
 		var req shortenRequest
 		dec := json.NewDecoder(r.Body)
 		if err := dec.Decode(&req); err != nil {
-			logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
+			logger.Log.Error("cannot decode request JSON body", zap.Error(err))
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
