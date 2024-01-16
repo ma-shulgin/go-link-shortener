@@ -20,7 +20,7 @@ type compressWriter struct {
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	return &compressWriter{
 		w:  w,
-		zw: gzip.NewWriter(w),
+	//	zw: gzip.NewWriter(w),
 	}
 }
 
@@ -34,14 +34,18 @@ func (c* compressWriter) shallZip() bool {
 }
 
 func (c *compressWriter) Write(p []byte) (int, error) {
-	if c.shallZip() {
+	if c.zw == nil && c.shallZip() {
+		c.zw = gzip.NewWriter(c.w)
+		c.w.Header().Set("Content-Encoding", "gzip")
+	}
+	if c.zw != nil {
 		return c.zw.Write(p)
 	}
 	return c.w.Write(p)
 }
 
 func (c *compressWriter) WriteHeader(statusCode int) {
-	if statusCode < 300 && c.shallZip() {
+	if c.zw == nil && statusCode < 300 && c.shallZip() {
 		c.w.Header().Set("Content-Encoding", "gzip")
 	}
 	c.w.WriteHeader(statusCode)
@@ -49,7 +53,12 @@ func (c *compressWriter) WriteHeader(statusCode int) {
 
 // Close закрывает gzip.Writer и досылает все данные из буфера.
 func (c *compressWriter) Close() error {
-	return c.zw.Close()
+	if c.zw != nil {
+		if err := c.zw.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // compressReader реализует интерфейс io.ReadCloser и позволяет прозрачно для сервера
