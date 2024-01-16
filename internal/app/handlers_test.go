@@ -15,12 +15,16 @@ func TestRootRouter(t *testing.T) {
 
 	//TOASK : If i need to set everything up in each test
 	//	or i can set up just once
+	store, err := InitURLStore("/tmp/test_db.json")
+	require.NoError(t, err)
+	defer store.Close() 
+
 	originalURL := "https://example.com"
 	urlID := GenerateShortURLID(originalURL)
-	urlStorage := make(map[string]string)
-	urlStorage[urlID] = originalURL
+	err = store.AddURL(originalURL, urlID)
+	require.NoError(t, err)
 
-	ts := httptest.NewServer(RootRouter(urlStorage, "http://localhost:8080"))
+	ts := httptest.NewServer(RootRouter(store, "http://localhost:8080"))
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse

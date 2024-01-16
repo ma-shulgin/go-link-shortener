@@ -11,15 +11,22 @@ import (
 
 func main() {
 	cfg := config.GetConfig()
-
+	
+	
 	if err := logger.Initialize(cfg.LogLevel); err != nil {
 		panic(err)
 	}
 
-	urlStorage := make(map[string]string)
+	logger.Log.Debug(cfg)
+
+	urlStorage, err := app.InitURLStore(cfg.FileStoragePath)
+	if err != nil {
+		panic(err)
+	}
+	defer urlStorage.Close()
 
 	logger.Log.Infow("Starting server", "address", cfg.ServerAddress)
-	err := http.ListenAndServe(cfg.ServerAddress, app.RootRouter(urlStorage, cfg.BaseURL))
+	err = http.ListenAndServe(cfg.ServerAddress, app.RootRouter(urlStorage, cfg.BaseURL))
 	if err != nil {
 		panic(err)
 	}
