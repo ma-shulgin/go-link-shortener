@@ -20,7 +20,6 @@ type compressWriter struct {
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	return &compressWriter{
 		w:  w,
-	//	zw: gzip.NewWriter(w),
 	}
 }
 
@@ -53,10 +52,11 @@ func (c *compressWriter) WriteHeader(statusCode int) {
 
 // Close закрывает gzip.Writer и досылает все данные из буфера.
 func (c *compressWriter) Close() error {
-	if c.zw != nil {
-		if err := c.zw.Close(); err != nil {
-			return err
-		}
+	if c.zw == nil {
+		return nil
+	}
+	if err := c.zw.Close(); err != nil {
+		return err
 	}
 	return nil
 }

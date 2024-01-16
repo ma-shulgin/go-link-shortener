@@ -30,7 +30,6 @@ func GetConfig() *Config {
 	if envLogLevel := os.Getenv("LOG_LEVEL"); envLogLevel != "" {
 		logLevel = envLogLevel
 	}
-
 	if envfileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envfileStoragePath != "" {
 		fileStoragePath = envfileStoragePath
 	}

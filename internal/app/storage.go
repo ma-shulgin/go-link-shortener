@@ -15,9 +15,9 @@ type URLRecord struct {
 }
 
 type URLStore struct {
-	file            *os.File
-	urlMap          map[string]string
-	nextID          int
+	file   *os.File
+	urlMap map[string]string
+	nextID int
 }
 
 func InitURLStore(filePath string) (*URLStore, error) {
@@ -28,11 +28,7 @@ func InitURLStore(filePath string) (*URLStore, error) {
 
 	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return store, nil
-		} else {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	maxID := 0
