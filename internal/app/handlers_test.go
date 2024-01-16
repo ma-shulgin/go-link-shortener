@@ -15,12 +15,16 @@ func TestRootRouter(t *testing.T) {
 
 	//TOASK : If i need to set everything up in each test
 	//	or i can set up just once
+	store, err := InitURLStore("/tmp/test_db.json")
+	require.NoError(t, err)
+	defer store.Close() 
+
 	originalURL := "https://example.com"
 	urlID := GenerateShortURLID(originalURL)
-	urlStorage := make(map[string]string)
-	urlStorage[urlID] = originalURL
+	err = store.AddURL(originalURL, urlID)
+	require.NoError(t, err)
 
-	ts := httptest.NewServer(RootRouter(urlStorage, "http://localhost:8080"))
+	ts := httptest.NewServer(RootRouter(store, "http://localhost:8080"))
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
@@ -35,6 +39,7 @@ func TestRootRouter(t *testing.T) {
 		body         string
 		expectedCode int
 		expectedBody string
+		responseType string
 	}{
 		{
 			name:         "Shorten URL",
@@ -43,6 +48,7 @@ func TestRootRouter(t *testing.T) {
 			body:         originalURL,
 			expectedCode: http.StatusCreated,
 			expectedBody: "http://localhost:8080/" + urlID,
+			responseType: "text",
 		},
 		{
 			name:         "Redirect URL",
@@ -50,6 +56,7 @@ func TestRootRouter(t *testing.T) {
 			path:         "/" + urlID,
 			expectedCode: http.StatusTemporaryRedirect,
 			expectedBody: "",
+			responseType: "",
 		},
 		{
 			name:         "Wrong URL path",
@@ -57,6 +64,7 @@ func TestRootRouter(t *testing.T) {
 			path:         "/other/path",
 			expectedCode: http.StatusNotFound,
 			expectedBody: "",
+			responseType: "",
 		},
 		{
 			name:         "Wrong URL",
@@ -64,6 +72,7 @@ func TestRootRouter(t *testing.T) {
 			path:         "/ntexst66",
 			expectedCode: http.StatusBadRequest,
 			expectedBody: "",
+			responseType: "",
 		},
 		{
 			name:         "Unsupported Method",
@@ -71,6 +80,31 @@ func TestRootRouter(t *testing.T) {
 			path:         "/",
 			expectedCode: http.StatusMethodNotAllowed,
 			expectedBody: "",
+		},
+		{
+			name:         "API Shorten POST without body",
+			method:       http.MethodPost,
+			path:         "/api/shorten",
+			expectedCode: http.StatusBadRequest,
+			expectedBody: "",
+			responseType: "",
+		},
+		{
+			name:         "API Shorten POST with body",
+			method:       http.MethodPost,
+			path:         "/api/shorten",
+			body:         `{"url": "https://example.com"}`,
+			expectedCode: http.StatusCreated,
+			expectedBody: `{"result": "http://localhost:8080/` + urlID + `"}`,
+			responseType: "json",
+		},
+		{
+			name:         "API Shorten with Unsupported Method",
+			method:       http.MethodGet,
+			path:         "/api/shorten",
+			expectedCode: http.StatusMethodNotAllowed,
+			expectedBody: "",
+			responseType: "",
 		},
 	}
 
@@ -82,6 +116,7 @@ func TestRootRouter(t *testing.T) {
 
 			if tc.body != "" {
 				req, err = http.NewRequest(tc.method, url, bytes.NewBufferString(tc.body))
+				req.Header.Set("Content-Type", "application/json")
 			} else {
 				req, err = http.NewRequest(tc.method, url, nil)
 			}
@@ -96,7 +131,13 @@ func TestRootRouter(t *testing.T) {
 			if tc.expectedBody != "" {
 				body, err := io.ReadAll(resp.Body)
 				require.NoError(t, err)
-				assert.Contains(t, string(body), tc.expectedBody, "Response body does not match expected")
+				switch tc.responseType {
+				case "json":
+					assert.JSONEq(t, tc.expectedBody, string(body), "Response body didn't match expected")
+
+				case "text":
+					assert.Equal(t, tc.expectedBody, string(body), "Response body didn't match expected")
+				}
 			}
 		})
 	}
