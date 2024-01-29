@@ -11,6 +11,10 @@ func ConnectToDB(dsn string) *sql.DB {
     if err != nil {
         logger.Log.Fatal("Failed to connect to database: ", err)
     }
+    err = db.Ping()
+    if err != nil {
+        logger.Log.Fatal("Failed to ping the database: ", err)
+    }
     logger.Log.Info("Connected to the database successfully")
     return db
 }
