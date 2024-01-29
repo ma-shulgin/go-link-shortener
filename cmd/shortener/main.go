@@ -6,7 +6,7 @@ import (
 	"github.com/ma-shulgin/go-link-shortener/cmd/config"
 	"github.com/ma-shulgin/go-link-shortener/internal/app"
 	"github.com/ma-shulgin/go-link-shortener/internal/logger"
-	"github.com/ma-shulgin/go-link-shortener/internal/db"
+	"github.com/ma-shulgin/go-link-shortener/internal/storage"
 )
 
 func main() {
@@ -18,18 +18,23 @@ func main() {
 
 	logger.Log.Debugln("Parsed config:", cfg)
 
-	urlStorage, err := app.InitURLStore(cfg.FileStoragePath)
+	var urlStore storage.URLStore
+	var err error
+	if cfg.DatabaseDSN != "" {
+		urlStore, err = storage.InitPostgresStore(cfg.DatabaseDSN)
+	} else if cfg.FileStoragePath != "" {
+		urlStore, err = storage.InitFileStore(cfg.FileStoragePath)
+	} else {
+		urlStore = storage.InitMemoryStore()
+	}
+
 	if err != nil {
 		logger.Log.Fatal(err)
 	}
-	defer urlStorage.Close()
+	defer urlStore.Close()
 
-	database := db.ConnectToDB(cfg.DatabaseDSN)
-  defer database.Close()
-
-	
 	logger.Log.Infow("Starting server", "address", cfg.ServerAddress)
-	err = http.ListenAndServe(cfg.ServerAddress, app.RootRouter(database, urlStorage, cfg.BaseURL))
+	err = http.ListenAndServe(cfg.ServerAddress, app.RootRouter(urlStore, cfg.BaseURL))
 	if err != nil {
 		logger.Log.Fatal(err)
 	}

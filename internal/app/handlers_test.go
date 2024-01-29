@@ -10,12 +10,13 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/ma-shulgin/go-link-shortener/internal/storage"
 )
 
 func TestRootRouter(t *testing.T) {
 
 	
-	store, err := InitURLStore("/tmp/test_db.json")
+	store, err := storage.InitFileStore("/tmp/test_db.json")
 	require.NoError(t, err)
 	defer store.Close() 
 
@@ -31,7 +32,7 @@ func TestRootRouter(t *testing.T) {
 	err = store.AddURL(originalURL, urlID)
 	require.NoError(t, err)
 
-	ts := httptest.NewServer(RootRouter(db, store, "http://localhost:8080"))
+	ts := httptest.NewServer(RootRouter(store, "http://localhost:8080"))
 
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {

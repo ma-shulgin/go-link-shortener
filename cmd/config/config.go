@@ -19,13 +19,10 @@ func GetConfig() *Config {
 	flag.StringVar(&serverAddress, "a", "localhost:8080", "HTTP server startup address")
 	flag.StringVar(&baseURL, "b", "http://localhost:8080", "Base address for shortened URLs")
 	flag.StringVar(&logLevel, "l", "info", "log level")
-	flag.StringVar(&fileStoragePath, "f", "/tmp/short-url-db.json", "File storage path")
-	flag.StringVar(&databaseDSN, "d", "postgresql://postgres:toor@localhost/postgres", "Database connection string")
+	flag.StringVar(&fileStoragePath, "f", "", "File storage path")
+	flag.StringVar(&databaseDSN, "d", "", "Database connection string")
 	flag.Parse()
 
-	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
-		databaseDSN = envDatabaseDSN
-	}
 	if envServerAddress := os.Getenv("SERVER_ADDRESS"); envServerAddress != "" {
 		serverAddress = envServerAddress
 	}
@@ -37,6 +34,9 @@ func GetConfig() *Config {
 	}
 	if envfileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envfileStoragePath != "" {
 		fileStoragePath = envfileStoragePath
+	}
+	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
+		databaseDSN = envDatabaseDSN
 	}
 
 	return &Config{

@@ -4,27 +4,27 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"database/sql"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/ma-shulgin/go-link-shortener/internal/logger"
+	"github.com/ma-shulgin/go-link-shortener/internal/storage"
 	"go.uber.org/zap"
 )
 
-func RootRouter(db *sql.DB, urlStorage *URLStore, baseURL string) chi.Router {
+func RootRouter(urlStorage storage.URLStore, baseURL string) chi.Router {
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging)
 	r.Use(gzipMiddleware)
 
-	r.Get("/ping", handlePing(db))
+	r.Get("/ping", handlePing(urlStorage))
 	r.Post("/", handleShorten(urlStorage, baseURL))
 	r.Get("/{id}", handleRedirect(urlStorage))
 	r.Post("/api/shorten", handleAPIShorten(urlStorage, baseURL))
 	return r
 }
-func handlePing(db *sql.DB) http.HandlerFunc {
+func handlePing(urlStorage storage.URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-			if err := db.Ping(); err != nil {
+			if err := urlStorage.Ping(); err != nil {
 					http.Error(w, "Database ping failed", http.StatusInternalServerError)
 					return
 			}
@@ -33,7 +33,7 @@ func handlePing(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func handleShorten(urlStorage *URLStore, baseURL string) http.HandlerFunc {
+func handleShorten(urlStorage storage.URLStore, baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		originalURL, err := io.ReadAll(r.Body)
@@ -54,7 +54,7 @@ func handleShorten(urlStorage *URLStore, baseURL string) http.HandlerFunc {
 	}
 }
 
-func handleRedirect(urlStorage *URLStore) http.HandlerFunc {
+func handleRedirect(urlStorage storage.URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		urlID := chi.URLParam(r, "id")
 		if originalURL, ok := urlStorage.GetURL(urlID); ok {
@@ -73,7 +73,7 @@ type shortenResponse struct {
 	Result string `json:"result"`
 }
 
-func handleAPIShorten(urlStorage *URLStore, baseURL string) http.HandlerFunc {
+func handleAPIShorten(urlStorage storage.URLStore, baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		
 		logger.Log.Debug("decoding request")
