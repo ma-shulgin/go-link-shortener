@@ -10,17 +10,22 @@ type Config struct {
 	BaseURL         string
 	LogLevel        string
 	FileStoragePath string
+	DatabaseDSN     string
 }
 
 func GetConfig() *Config {
-	var serverAddress, baseURL, logLevel, fileStoragePath string
+	var serverAddress, baseURL, logLevel, fileStoragePath, databaseDSN string
 
 	flag.StringVar(&serverAddress, "a", "localhost:8080", "HTTP server startup address")
 	flag.StringVar(&baseURL, "b", "http://localhost:8080", "Base address for shortened URLs")
 	flag.StringVar(&logLevel, "l", "info", "log level")
 	flag.StringVar(&fileStoragePath, "f", "/tmp/short-url-db.json", "File storage path")
+	flag.StringVar(&databaseDSN, "d", "", "Database connection string")
 	flag.Parse()
 
+	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
+		databaseDSN = envDatabaseDSN
+	}
 	if envServerAddress := os.Getenv("SERVER_ADDRESS"); envServerAddress != "" {
 		serverAddress = envServerAddress
 	}
@@ -35,9 +40,9 @@ func GetConfig() *Config {
 	}
 
 	return &Config{
-		ServerAddress: serverAddress,
-		BaseURL:       baseURL,
-		LogLevel:      logLevel,
+		ServerAddress:   serverAddress,
+		BaseURL:         baseURL,
+		LogLevel:        logLevel,
 		FileStoragePath: fileStoragePath,
 	}
 }

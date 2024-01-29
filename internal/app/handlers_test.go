@@ -7,24 +7,32 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRootRouter(t *testing.T) {
 
-	//TOASK : If i need to set everything up in each test
-	//	or i can set up just once
+	
 	store, err := InitURLStore("/tmp/test_db.json")
 	require.NoError(t, err)
 	defer store.Close() 
+
+	db, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+    if err != nil {
+        t.Fatal(err)
+    }
+  defer db.Close()
+	mock.ExpectPing().WillReturnError(nil)
 
 	originalURL := "https://example.com"
 	urlID := GenerateShortURLID(originalURL)
 	err = store.AddURL(originalURL, urlID)
 	require.NoError(t, err)
 
-	ts := httptest.NewServer(RootRouter(store, "http://localhost:8080"))
+	ts := httptest.NewServer(RootRouter(db, store, "http://localhost:8080"))
+
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
@@ -41,6 +49,14 @@ func TestRootRouter(t *testing.T) {
 		expectedBody string
 		responseType string
 	}{
+		{
+			name:         "Ping",
+			method:       http.MethodGet,
+			path:         "/ping",
+			expectedCode: http.StatusOK,
+			expectedBody: "OK",
+			responseType: "text",
+		},
 		{
 			name:         "Shorten URL",
 			method:       http.MethodPost,

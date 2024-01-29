@@ -4,21 +4,33 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"database/sql"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/ma-shulgin/go-link-shortener/internal/logger"
 	"go.uber.org/zap"
 )
 
-func RootRouter(urlStorage *URLStore, baseURL string) chi.Router {
+func RootRouter(db *sql.DB, urlStorage *URLStore, baseURL string) chi.Router {
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging)
 	r.Use(gzipMiddleware)
 
+	r.Get("/ping", handlePing(db))
 	r.Post("/", handleShorten(urlStorage, baseURL))
 	r.Get("/{id}", handleRedirect(urlStorage))
 	r.Post("/api/shorten", handleAPIShorten(urlStorage, baseURL))
 	return r
+}
+func handlePing(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+			if err := db.Ping(); err != nil {
+					http.Error(w, "Database ping failed", http.StatusInternalServerError)
+					return
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("OK"))
+	}
 }
 
 func handleShorten(urlStorage *URLStore, baseURL string) http.HandlerFunc {
