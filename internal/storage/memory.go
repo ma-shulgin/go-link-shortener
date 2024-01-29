@@ -28,3 +28,9 @@ func (s *MemoryStore) Close() error {
     return nil
 }
 
+func (s *MemoryStore) AddURLBatch(urls []URLRecord) error {
+    for _, url := range urls {
+        s.urlMap[url.ShortURL] = url.OriginalURL
+    }
+    return nil
+}

@@ -8,11 +8,6 @@ import (
 	"github.com/ma-shulgin/go-link-shortener/internal/logger"
 )
 
-type URLRecord struct {
-	UUID        int    `json:"uuid"`
-	ShortURL    string `json:"short_url"`
-	OriginalURL string `json:"original_url"`
-}
 
 type FileStore struct {
 	file   *os.File
@@ -99,4 +94,13 @@ func (s *FileStore) Close() error {
 func (s *FileStore) Ping() error {
 	_, err := s.file.Stat()
 	return err
+}
+
+func (s *FileStore) AddURLBatch(urls []URLRecord) error {
+	for _, url := range urls {
+			if err := s.AddURL(url.OriginalURL, url.ShortURL); err != nil {
+					return err
+			}
+	}
+	return nil
 }

@@ -16,14 +16,27 @@ func InitPostgresStore(dsn string) (*PostgresStore, error) {
     if err != nil {
         logger.Log.Fatal("Failed to connect to database: ", err)
     }
-    _, err = db.Exec(`CREATE TABLE IF NOT EXISTS urls (
+    tx, err := db.Begin()
+    
+    if err != nil {
+        return nil, err
+    }
+
+
+    tx.Exec(`CREATE TABLE IF NOT EXISTS urls (
         id SERIAL PRIMARY KEY,
         original_url TEXT NOT NULL,
         short_url TEXT NOT NULL UNIQUE
     );`)
+
+    tx.Exec(`CREATE INDEX IF NOT EXISTS short_url_idx ON urls (short_url)`)
+    
+    err = tx.Commit()
     if err != nil {
-        logger.Log.Fatalln("Failed to ping the database:", err)
+        tx.Rollback()
+        logger.Log.Fatalln("Failed to create the database:", err)
     }
+
     logger.Log.Info("Database initalized successfully")
     s := &PostgresStore{db:db}
     return s, nil
@@ -49,4 +62,20 @@ func (s *PostgresStore) Ping() error {
 
 func (s *PostgresStore) Close() error {
     return s.db.Close()
+}
+
+func (s *PostgresStore) AddURLBatch(urls []URLRecord) error {
+    tx, err := s.db.Begin()
+    if err != nil {
+        return err
+    }
+
+    for _, url := range urls {
+        if _, err := tx.Exec("INSERT INTO urls (original_url, short_url) VALUES ($1, $2)", url.OriginalURL, url.ShortURL); err != nil {
+            tx.Rollback()
+            return err
+        }
+    }
+
+    return tx.Commit()
 }

@@ -115,6 +115,15 @@ func TestRootRouter(t *testing.T) {
 			expectedBody: `{"result": "http://localhost:8080/` + urlID + `"}`,
 			responseType: "json",
 		},
+		// {
+		// 	name:         "API Shorten batch ",
+		// 	method:       http.MethodPost,
+		// 	path:         "/api/shorten/batch",
+		// 	body:         `{"url": "https://example.com"}`,
+		// 	expectedCode: http.StatusCreated,
+		// 	expectedBody: `{"result": "http://localhost:8080/` + urlID + `"}`,
+		// 	responseType: "json",
+		// },
 		{
 			name:         "API Shorten with Unsupported Method",
 			method:       http.MethodGet,
