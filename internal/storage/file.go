@@ -8,7 +8,6 @@ import (
 	"github.com/ma-shulgin/go-link-shortener/internal/logger"
 )
 
-
 type FileStore struct {
 	file   *os.File
 	urlMap map[string]string
@@ -98,9 +97,9 @@ func (s *FileStore) Ping() error {
 
 func (s *FileStore) AddURLBatch(urls []URLRecord) error {
 	for _, url := range urls {
-			if err := s.AddURL(url.OriginalURL, url.ShortURL); err != nil {
-					return err
-			}
+		if err := s.AddURL(url.OriginalURL, url.ShortURL); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -66,16 +67,26 @@ func handleAPIShorten(urlStorage storage.URLStore, baseURL string) http.HandlerF
 			return
 		}
 		defer r.Body.Close()
-
+		
 		urlID := GenerateShortURLID(req.URL)
-		urlStorage.AddURL(req.URL, urlID)
+		w.Header().Set("Content-Type", "application/json")
+		
+		err := urlStorage.AddURL(req.URL, urlID)
+		if err != nil {
+			if errors.Is(err, storage.ErrConflict) {
+				w.WriteHeader(http.StatusConflict)
+			} else {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			w.WriteHeader(http.StatusCreated)
+		}
 
 		resp := shortenResponse{
 			Result: baseURL + "/" + urlID,
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
 
 		enc := json.NewEncoder(w)
 		if err := enc.Encode(resp); err != nil {
@@ -124,7 +135,7 @@ func handleBatchShorten(urlStorage storage.URLStore, baseURL string) http.Handle
 		if len(urlsToAdd) == 0 {
 			http.Error(w, "Write at least one URL", http.StatusBadRequest)
 		}
-		
+
 		if err := urlStorage.AddURLBatch(urlsToAdd); err != nil {
 			logger.Log.Error("Failed to save URLs", zap.Error(err))
 			w.WriteHeader(http.StatusBadRequest)
@@ -153,11 +164,20 @@ func handleShorten(urlStorage storage.URLStore, baseURL string) http.HandlerFunc
 		r.Body.Close()
 
 		urlID := GenerateShortURLID(string(originalURL))
-		urlStorage.AddURL(string(originalURL), urlID)
-
 		shortenedURL := baseURL + "/" + urlID
 		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusCreated)
+
+		err = urlStorage.AddURL(string(originalURL), urlID)
+		if err != nil {
+			if errors.Is(err, storage.ErrConflict) {
+				w.WriteHeader(http.StatusConflict)
+			} else {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		} else {
+			w.WriteHeader(http.StatusCreated)
+		}
 		w.Write([]byte(shortenedURL))
 	}
 }

@@ -19,7 +19,7 @@ type compressWriter struct {
 
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	return &compressWriter{
-		w:  w,
+		w: w,
 	}
 }
 
@@ -27,7 +27,7 @@ func (c *compressWriter) Header() http.Header {
 	return c.w.Header()
 }
 
-func (c* compressWriter) shallZip() bool {
+func (c *compressWriter) shallZip() bool {
 	contentType := c.Header().Get("Content-Type")
 	return strings.HasPrefix(contentType, "application/json") || strings.HasPrefix(contentType, "text/html")
 }
