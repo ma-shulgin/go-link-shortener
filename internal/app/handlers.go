@@ -69,7 +69,8 @@ func handleAPIShorten(urlStorage storage.URLStore, baseURL string) http.HandlerF
 		defer r.Body.Close()
 
 		urlID := GenerateShortURLID(req.URL)
-
+		
+		w.Header().Set("Content-Type", "application/json")
 		err := urlStorage.AddURL(req.URL, urlID)
 		if err != nil {
 			if errors.Is(err, storage.ErrConflict) {
@@ -79,7 +80,6 @@ func handleAPIShorten(urlStorage storage.URLStore, baseURL string) http.HandlerF
 				return
 			}
 		} else {
-			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
 		}
 
