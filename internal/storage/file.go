@@ -1,27 +1,22 @@
-package app
+package storage
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"os"
 
 	"github.com/ma-shulgin/go-link-shortener/internal/logger"
 )
 
-type URLRecord struct {
-	UUID        int    `json:"uuid"`
-	ShortURL    string `json:"short_url"`
-	OriginalURL string `json:"original_url"`
-}
-
-type URLStore struct {
+type FileStore struct {
 	file   *os.File
 	urlMap map[string]string
 	nextID int
 }
 
-func InitURLStore(filePath string) (*URLStore, error) {
-	store := &URLStore{
+func InitFileStore(filePath string) (*FileStore, error) {
+	store := &FileStore{
 		urlMap: make(map[string]string),
 		nextID: 1,
 	}
@@ -55,7 +50,7 @@ func InitURLStore(filePath string) (*URLStore, error) {
 	return store, nil
 }
 
-func (s *URLStore) AddURL(originalURL, shortURL string) error {
+func (s *FileStore) AddURL(ctx context.Context, originalURL, shortURL string) error {
 	if _, exists := s.urlMap[shortURL]; exists {
 		logger.Log.Warnf("short URL already exists: %s", shortURL)
 		return nil
@@ -84,14 +79,28 @@ func (s *URLStore) AddURL(originalURL, shortURL string) error {
 	return nil
 }
 
-func (s *URLStore) GetURL(shortURL string) (string, bool) {
+func (s *FileStore) GetURL(ctx context.Context, shortURL string) (string, bool) {
 	url, ok := s.urlMap[shortURL]
 	return url, ok
 }
 
-func (s *URLStore) Close() error {
+func (s *FileStore) Close() error {
 	if s.file != nil {
 		return s.file.Close()
+	}
+	return nil
+}
+
+func (s *FileStore) Ping(ctx context.Context) error {
+	_, err := s.file.Stat()
+	return err
+}
+
+func (s *FileStore) AddURLBatch(ctx context.Context, urls []URLRecord) error {
+	for _, url := range urls {
+		if err := s.AddURL(ctx, url.OriginalURL, url.ShortURL); err != nil {
+			return err
+		}
 	}
 	return nil
 }
