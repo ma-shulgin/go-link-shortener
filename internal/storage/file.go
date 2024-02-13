@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"os"
 
@@ -49,7 +50,7 @@ func InitFileStore(filePath string) (*FileStore, error) {
 	return store, nil
 }
 
-func (s *FileStore) AddURL(originalURL, shortURL string) error {
+func (s *FileStore) AddURL(ctx context.Context, originalURL, shortURL string) error {
 	if _, exists := s.urlMap[shortURL]; exists {
 		logger.Log.Warnf("short URL already exists: %s", shortURL)
 		return nil
@@ -78,7 +79,7 @@ func (s *FileStore) AddURL(originalURL, shortURL string) error {
 	return nil
 }
 
-func (s *FileStore) GetURL(shortURL string) (string, bool) {
+func (s *FileStore) GetURL(ctx context.Context, shortURL string) (string, bool) {
 	url, ok := s.urlMap[shortURL]
 	return url, ok
 }
@@ -90,14 +91,14 @@ func (s *FileStore) Close() error {
 	return nil
 }
 
-func (s *FileStore) Ping() error {
+func (s *FileStore) Ping(ctx context.Context) error {
 	_, err := s.file.Stat()
 	return err
 }
 
-func (s *FileStore) AddURLBatch(urls []URLRecord) error {
+func (s *FileStore) AddURLBatch(ctx context.Context, urls []URLRecord) error {
 	for _, url := range urls {
-		if err := s.AddURL(url.OriginalURL, url.ShortURL); err != nil {
+		if err := s.AddURL(ctx, url.OriginalURL, url.ShortURL); err != nil {
 			return err
 		}
 	}

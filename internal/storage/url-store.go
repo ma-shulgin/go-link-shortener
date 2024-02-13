@@ -1,12 +1,15 @@
 package storage
-
-import "errors"
+ 
+import (
+	"errors"
+	"context"
+)
 
 type URLStore interface {
-	AddURL(originalURL, shortURL string) error
-	AddURLBatch(urls []URLRecord) error
-	GetURL(shortURL string) (string, bool)
-	Ping() error
+	AddURL(ctx context.Context, originalURL, shortURL string) error
+	AddURLBatch(ctx context.Context, urls []URLRecord) error
+	GetURL(ctx context.Context, shortURL string) (string, bool)
+	Ping(ctx context.Context) error
 	Close() error
 }
 

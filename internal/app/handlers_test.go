@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +29,7 @@ func TestRootRouter(t *testing.T) {
 
 	originalURL := "https://example.com"
 	urlID := GenerateShortURLID(originalURL)
-	err = store.AddURL(originalURL, urlID)
+	err = store.AddURL(context.Background(), originalURL, urlID)
 	require.NoError(t, err)
 
 	ts := httptest.NewServer(RootRouter(store, "http://localhost:8080"))

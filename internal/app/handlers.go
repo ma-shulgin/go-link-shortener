@@ -27,7 +27,8 @@ func RootRouter(urlStorage storage.URLStore, baseURL string) chi.Router {
 }
 func handlePing(urlStorage storage.URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := urlStorage.Ping(); err != nil {
+		ctx := r.Context()
+		if err := urlStorage.Ping(ctx); err != nil {
 			http.Error(w, "Database ping failed", http.StatusInternalServerError)
 			return
 		}
@@ -38,8 +39,9 @@ func handlePing(urlStorage storage.URLStore) http.HandlerFunc {
 
 func handleRedirect(urlStorage storage.URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx:= r.Context()
 		urlID := chi.URLParam(r, "id")
-		if originalURL, ok := urlStorage.GetURL(urlID); ok {
+		if originalURL, ok := urlStorage.GetURL(ctx,urlID); ok {
 			http.Redirect(w, r, originalURL, http.StatusTemporaryRedirect)
 			return
 		}
@@ -57,7 +59,7 @@ type shortenResponse struct {
 
 func handleAPIShorten(urlStorage storage.URLStore, baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
+		ctx := r.Context()
 		logger.Log.Debug("decoding request")
 		var req shortenRequest
 		dec := json.NewDecoder(r.Body)
@@ -71,7 +73,7 @@ func handleAPIShorten(urlStorage storage.URLStore, baseURL string) http.HandlerF
 		urlID := GenerateShortURLID(req.URL)
 		
 		w.Header().Set("Content-Type", "application/json")
-		err := urlStorage.AddURL(req.URL, urlID)
+		err := urlStorage.AddURL(ctx, req.URL, urlID)
 		if err != nil {
 			if errors.Is(err, storage.ErrConflict) {
 				w.WriteHeader(http.StatusConflict)
@@ -108,6 +110,7 @@ type batchResponse struct {
 
 func handleBatchShorten(urlStorage storage.URLStore, baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx:= r.Context()
 		var req []batchRequest
 		dec := json.NewDecoder(r.Body)
 		if err := dec.Decode(&req); err != nil {
@@ -133,9 +136,10 @@ func handleBatchShorten(urlStorage storage.URLStore, baseURL string) http.Handle
 		}
 		if len(urlsToAdd) == 0 {
 			http.Error(w, "Write at least one URL", http.StatusBadRequest)
+			return
 		}
 
-		if err := urlStorage.AddURLBatch(urlsToAdd); err != nil {
+		if err := urlStorage.AddURLBatch(ctx, urlsToAdd); err != nil {
 			logger.Log.Error("Failed to save URLs", zap.Error(err))
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -154,7 +158,7 @@ func handleBatchShorten(urlStorage storage.URLStore, baseURL string) http.Handle
 
 func handleShorten(urlStorage storage.URLStore, baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
+		ctx := r.Context()
 		originalURL, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "Error reading request body", http.StatusInternalServerError)
@@ -166,7 +170,7 @@ func handleShorten(urlStorage storage.URLStore, baseURL string) http.HandlerFunc
 		shortenedURL := baseURL + "/" + urlID
 		w.Header().Set("Content-Type", "text/plain")
 
-		err = urlStorage.AddURL(string(originalURL), urlID)
+		err = urlStorage.AddURL(ctx, string(originalURL), urlID)
 		if err != nil {
 			if errors.Is(err, storage.ErrConflict) {
 				w.WriteHeader(http.StatusConflict)
