@@ -67,11 +67,14 @@ func (s *PostgresStore) AddURL(ctx context.Context, originalURL, shortURL string
 
 func (s *PostgresStore) GetURL(ctx context.Context, shortURL string) (string, error) {
 	var originalURL string
-	err := s.db.QueryRowContext(ctx, "SELECT original_url FROM urls WHERE short_url = $1", shortURL).Scan(&originalURL)
+	var deleteFlag bool
+	err := s.db.QueryRowContext(ctx, "SELECT original_url, is_deleted FROM urls WHERE short_url = $1", shortURL).Scan(&originalURL,&deleteFlag)
 	if err != nil {
-		if errors.Is(err,sql.ErrNoRows){
+		if errors.Is(err,sql.ErrNoRows) {
+			return "", ErrNotFound
+		} else if deleteFlag {
 			return "", ErrDeleted
-		}
+		} 
 		return "", err
 	}
 	return originalURL, nil

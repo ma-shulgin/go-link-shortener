@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"errors"
 
 	"github.com/ma-shulgin/go-link-shortener/internal/appcontext"
 )
@@ -49,7 +48,7 @@ func (s *MemoryStore) AddURL(ctx context.Context, originalURL, shortURL string) 
 func (s *MemoryStore) GetURL(ctx context.Context, shortURL string) (string, error) {
 	record, ok := s.urlMap[shortURL]
 	if !ok {
-		return "", errors.New("not found")
+		return "", ErrNotFound
 	}
 	if record.DeletedFlag {
 		return "", ErrDeleted
