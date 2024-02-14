@@ -1,25 +1,43 @@
 package storage
 
-import "context"
+import (
+	"context"
+
+	"github.com/ma-shulgin/go-link-shortener/internal/app-context"
+)
 
 type MemoryStore struct {
-	urlMap map[string]string
+	urlMap map[string]URLRecord
 }
 
 func InitMemoryStore() *MemoryStore {
 	return &MemoryStore{
-		urlMap: make(map[string]string),
+		urlMap: make(map[string]URLRecord),
 	}
 }
 
 func (s *MemoryStore) AddURL(ctx context.Context, originalURL, shortURL string) error {
-	s.urlMap[shortURL] = originalURL
+	if _, exists := s.urlMap[shortURL]; exists {
+		return ErrConflict
+	}
+
+	userID, ok := ctx.Value(appContext.KeyUserID).(string)
+	if !ok {
+		return ErrNoUserID
+	}
+
+	record := URLRecord{
+		OriginalURL: originalURL,
+		CreatorID:   userID,
+	}
+
+	s.urlMap[shortURL] = record
 	return nil
 }
 
 func (s *MemoryStore) GetURL(ctx context.Context, shortURL string) (string, bool) {
-	originalURL, exists := s.urlMap[shortURL]
-	return originalURL, exists
+	record, exists := s.urlMap[shortURL]
+	return record.OriginalURL, exists
 }
 
 func (s *MemoryStore) Ping(ctx context.Context) error {
@@ -32,7 +50,24 @@ func (s *MemoryStore) Close() error {
 
 func (s *MemoryStore) AddURLBatch(ctx context.Context, urls []URLRecord) error {
 	for _, url := range urls {
-		s.urlMap[url.ShortURL] = url.OriginalURL
+		if err := s.AddURL(ctx, url.OriginalURL, url.ShortURL); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func (s *MemoryStore) GetUserURLs(ctx context.Context) ([]URLRecord, error) {
+	userID, ok := ctx.Value(appContext.KeyUserID).(string)
+	if !ok {
+		return nil, ErrNoUserID
+	}
+
+	var urls []URLRecord
+	for _, url := range s.urlMap {
+			if url.CreatorID == userID {
+					urls = append(urls, URLRecord{ShortURL: url.ShortURL, OriginalURL: url.OriginalURL})
+			}
+	}
+	return urls, nil
 }
