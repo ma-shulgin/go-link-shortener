@@ -16,15 +16,39 @@ func RootRouter(urlStorage storage.URLStore, baseURL string) chi.Router {
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging)
 	r.Use(gzipMiddleware)
+	r.Use(JwtAuthMiddleware)
 
 	r.Get("/ping", handlePing(urlStorage))
 	r.Get("/{id}", handleRedirect(urlStorage))
+	r.Get("/api/user/urls", handleUserUrls(urlStorage, baseURL))
 	r.Post("/", handleShorten(urlStorage, baseURL))
 	r.Post("/api/shorten", handleAPIShorten(urlStorage, baseURL))
 	r.Post("/api/shorten/batch", handleBatchShorten(urlStorage, baseURL))
 
 	return r
 }
+
+func handleUserUrls(urlStorage storage.URLStore, baseURL string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			urls, err := urlStorage.GetUserURLs(ctx)
+			if err != nil {
+					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					return
+			}
+
+			if len(urls) == 0 {
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+			}
+			for i := range urls {
+				urls[i].ShortURL = baseURL + "/" + urls[i].ShortURL
+		}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(urls)
+	}
+}
+
 func handlePing(urlStorage storage.URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()

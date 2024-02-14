@@ -16,6 +16,7 @@ func main() {
 		panic(err)
 	}
 
+	app.InitializeJWT(cfg.JWTSecret)
 	logger.Log.Debugln("Parsed config:", cfg)
 
 	var urlStore storage.URLStore

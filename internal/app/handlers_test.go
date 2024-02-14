@@ -2,7 +2,7 @@ package app
 
 import (
 	"bytes"
-	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +15,10 @@ import (
 )
 
 func TestRootRouter(t *testing.T) {
+	InitializeJWT("TEST_TOKEN")
+	// "sub" : "test_user"
+	token, err := GenerateJWT("test_user")
+	require.NoError(t, err)
 
 	store, err := storage.InitFileStore("/tmp/test_db.json")
 	require.NoError(t, err)
@@ -27,10 +31,15 @@ func TestRootRouter(t *testing.T) {
 	defer db.Close()
 	mock.ExpectPing().WillReturnError(nil)
 
-	originalURL := "https://example.com"
-	urlID := GenerateShortURLID(originalURL)
-	err = store.AddURL(context.Background(), originalURL, urlID)
-	require.NoError(t, err)
+	var originalURLs []string
+	for i := 0; i < 4; i++ {
+		url := fmt.Sprintf("https://example%d.com", i)
+		originalURLs = append(originalURLs, url)
+	}
+
+
+	//err = store.AddURL(context.Background(), originalURL, urlID)
+	//require.NoError(t, err)
 
 	ts := httptest.NewServer(RootRouter(store, "http://localhost:8080"))
 
@@ -62,15 +71,15 @@ func TestRootRouter(t *testing.T) {
 			name:         "Shorten URL",
 			method:       http.MethodPost,
 			path:         "/",
-			body:         originalURL,
+			body:         originalURLs[0],
 			expectedCode: http.StatusCreated,
-			expectedBody: "http://localhost:8080/" + urlID,
+			expectedBody: "http://localhost:8080/" + GenerateShortURLID(originalURLs[0]),
 			responseType: "text",
 		},
 		{
 			name:         "Redirect URL",
 			method:       http.MethodGet,
-			path:         "/" + urlID,
+			path:         "/" +  GenerateShortURLID(originalURLs[0]),
 			expectedCode: http.StatusTemporaryRedirect,
 			expectedBody: "",
 			responseType: "",
@@ -110,9 +119,9 @@ func TestRootRouter(t *testing.T) {
 			name:         "API Shorten POST with body",
 			method:       http.MethodPost,
 			path:         "/api/shorten",
-			body:         `{"url": "https://example.com"}`,
+			body:         `{"url": "` + originalURLs[1] + `"}`,
 			expectedCode: http.StatusCreated,
-			expectedBody: `{"result": "http://localhost:8080/` + urlID + `"}`,
+			expectedBody: `{"result": "http://localhost:8080/` +  GenerateShortURLID(originalURLs[1]) + `"}`,
 			responseType: "json",
 		},
 		{
@@ -138,6 +147,11 @@ func TestRootRouter(t *testing.T) {
 				req, err = http.NewRequest(tc.method, url, nil)
 			}
 			require.NoError(t, err)
+			req.AddCookie(&http.Cookie{
+				Name:     authCookieName,
+				Value:    token,
+				HttpOnly: true,
+			})
 
 			resp, err := client.Do(req)
 			require.NoError(t, err)
