@@ -11,6 +11,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/ma-shulgin/go-link-shortener/internal/storage"
+	"github.com/ma-shulgin/go-link-shortener/internal/workers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,7 +45,7 @@ func TestRootRouter(t *testing.T) {
 	//err = store.AddURL(context.Background(), originalURL, urlID)
 	//require.NoError(t, err)
 
-	ts := httptest.NewServer(RootRouter(store, "http://localhost:8080"))
+	ts := httptest.NewServer(RootRouter(store, "http://localhost:8080", workers.RunDeleteWorker(store,10)))
 
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {

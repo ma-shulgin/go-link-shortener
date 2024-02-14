@@ -11,10 +11,12 @@ import (
 	"github.com/ma-shulgin/go-link-shortener/internal/appcontext"
 	"github.com/ma-shulgin/go-link-shortener/internal/logger"
 	"github.com/ma-shulgin/go-link-shortener/internal/storage"
+	"github.com/ma-shulgin/go-link-shortener/internal/workers"
 	"go.uber.org/zap"
 )
 
-func RootRouter(urlStorage storage.URLStore, baseURL string) chi.Router {
+
+func RootRouter(urlStorage storage.URLStore, baseURL string, deleteChan chan<- workers.DeleteContext) chi.Router {
 	r := chi.NewRouter()
 	r.Use(logger.WithLogging)
 	r.Use(gzipMiddleware)
@@ -24,7 +26,7 @@ func RootRouter(urlStorage storage.URLStore, baseURL string) chi.Router {
 	r.Get("/{id}", handleRedirect(urlStorage))
 	r.Get("/api/user/urls", handleUserUrls(urlStorage, baseURL))
 	r.Post("/", handleShorten(urlStorage, baseURL))
-	r.Delete("/api/user/urls", handleDeleteUserUrls(urlStorage))
+	r.Delete("/api/user/urls", handleDeleteUserUrls(urlStorage, deleteChan))
 	r.Post("/api/shorten", handleAPIShorten(urlStorage, baseURL))
 	r.Post("/api/shorten/batch", handleBatchShorten(urlStorage, baseURL))
 
@@ -64,7 +66,7 @@ func handlePing(urlStorage storage.URLStore) http.HandlerFunc {
 	}
 }
 
-func handleDeleteUserUrls(urlStorage storage.URLStore) http.HandlerFunc {
+func handleDeleteUserUrls(urlStorage storage.URLStore, deleteChan chan<- workers.DeleteContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// evading r.context cancelation after sending response
 		ctx := context.WithValue(
@@ -81,12 +83,9 @@ func handleDeleteUserUrls(urlStorage storage.URLStore) http.HandlerFunc {
 			return
 		}
 
-		go func(ctx context.Context) {
-			if err := urlStorage.DeleteURLs(ctx, shortURLs); err != nil {
-				logger.Log.Error("Failed to delete URLs", zap.Error(err))
-			}
-		}(ctx)
-
+		deleteChan<- workers.DeleteContext{ShortURLs: shortURLs, Ctx: ctx}
+		
+		
 		w.WriteHeader(http.StatusAccepted)
 	}
 }
