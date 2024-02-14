@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/ma-shulgin/go-link-shortener/internal/app-context"
+	"github.com/ma-shulgin/go-link-shortener/internal/appcontext"
 )
 
 var jwtSecret []byte
@@ -69,7 +69,7 @@ func JwtAuthMiddleware(h http.Handler) http.Handler {
 				Value:    tokenString,
 				HttpOnly: true,
 			})
-			ctx := context.WithValue(r.Context(), appContext.KeyUserID, userID)
+			ctx := context.WithValue(r.Context(), appcontext.KeyUserID, userID)
 			h.ServeHTTP(w, r.WithContext(ctx))
 		} else {
 			claims, err := ValidateJWT(cookie.Value)
@@ -77,7 +77,7 @@ func JwtAuthMiddleware(h http.Handler) http.Handler {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}
-			ctx := context.WithValue(r.Context(), appContext.KeyUserID, claims.Subject)
+			ctx := context.WithValue(r.Context(), appcontext.KeyUserID, claims.Subject)
 			h.ServeHTTP(w, r.WithContext(ctx))
 		}
 	})

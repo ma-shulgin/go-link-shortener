@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/ma-shulgin/go-link-shortener/internal/app-context"
+	"github.com/ma-shulgin/go-link-shortener/internal/appcontext"
 	"github.com/ma-shulgin/go-link-shortener/internal/logger"
 )
 
@@ -49,7 +49,7 @@ func InitPostgresStore(dsn string) (*PostgresStore, error) {
 }
 
 func (s *PostgresStore) AddURL(ctx context.Context, originalURL, shortURL string) error {
-	userID, ok := ctx.Value(appContext.KeyUserID).(string)
+	userID, ok := ctx.Value(appcontext.KeyUserID).(string)
 	if !ok {
 		return ErrNoUserID
 	}
@@ -82,11 +82,11 @@ func (s *PostgresStore) Close() error {
 }
 
 func (s *PostgresStore) AddURLBatch(ctx context.Context, urls []URLRecord) error {
-	userID, ok := ctx.Value(appContext.KeyUserID).(string)
+	userID, ok := ctx.Value(appcontext.KeyUserID).(string)
 	if !ok {
 		return ErrNoUserID
 	}
-	
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -103,26 +103,26 @@ func (s *PostgresStore) AddURLBatch(ctx context.Context, urls []URLRecord) error
 }
 
 func (s *PostgresStore) GetUserURLs(ctx context.Context) ([]URLRecord, error) {
-	userID, ok := ctx.Value(appContext.KeyUserID).(string)
+	userID, ok := ctx.Value(appcontext.KeyUserID).(string)
 	if !ok {
 		return nil, ErrNoUserID
 	}
 	rows, err := s.db.Query("SELECT short_url, original_url FROM urls WHERE creator_id = $1", userID)
 	if err != nil {
-			return nil, err
+		return nil, err
 	}
 	defer rows.Close()
 
 	var urls []URLRecord
 	for rows.Next() {
-			var url URLRecord
-			if err := rows.Scan(&url.ShortURL, &url.OriginalURL); err != nil {
-					return nil, err
-			}
-			urls = append(urls, url)
+		var url URLRecord
+		if err := rows.Scan(&url.ShortURL, &url.OriginalURL); err != nil {
+			return nil, err
+		}
+		urls = append(urls, url)
 	}
 	if err := rows.Err(); err != nil {
-			return nil, err
+		return nil, err
 	}
 	return urls, nil
 }

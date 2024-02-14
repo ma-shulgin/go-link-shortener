@@ -3,7 +3,7 @@ package storage
 import (
 	"context"
 
-	"github.com/ma-shulgin/go-link-shortener/internal/app-context"
+	"github.com/ma-shulgin/go-link-shortener/internal/appcontext"
 )
 
 type MemoryStore struct {
@@ -21,7 +21,7 @@ func (s *MemoryStore) AddURL(ctx context.Context, originalURL, shortURL string) 
 		return ErrConflict
 	}
 
-	userID, ok := ctx.Value(appContext.KeyUserID).(string)
+	userID, ok := ctx.Value(appcontext.KeyUserID).(string)
 	if !ok {
 		return ErrNoUserID
 	}
@@ -58,16 +58,16 @@ func (s *MemoryStore) AddURLBatch(ctx context.Context, urls []URLRecord) error {
 }
 
 func (s *MemoryStore) GetUserURLs(ctx context.Context) ([]URLRecord, error) {
-	userID, ok := ctx.Value(appContext.KeyUserID).(string)
+	userID, ok := ctx.Value(appcontext.KeyUserID).(string)
 	if !ok {
 		return nil, ErrNoUserID
 	}
 
 	var urls []URLRecord
 	for _, url := range s.urlMap {
-			if url.CreatorID == userID {
-					urls = append(urls, URLRecord{ShortURL: url.ShortURL, OriginalURL: url.OriginalURL})
-			}
+		if url.CreatorID == userID {
+			urls = append(urls, URLRecord{ShortURL: url.ShortURL, OriginalURL: url.OriginalURL})
+		}
 	}
 	return urls, nil
 }

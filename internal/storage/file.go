@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/ma-shulgin/go-link-shortener/internal/app-context"
+	"github.com/ma-shulgin/go-link-shortener/internal/appcontext"
 	"github.com/ma-shulgin/go-link-shortener/internal/logger"
 )
 
@@ -56,7 +56,7 @@ func (s *FileStore) AddURL(ctx context.Context, originalURL, shortURL string) er
 		return ErrConflict
 	}
 
-	userID, ok := ctx.Value(appContext.KeyUserID).(string)
+	userID, ok := ctx.Value(appcontext.KeyUserID).(string)
 	if !ok {
 		return ErrNoUserID
 	}
@@ -112,7 +112,7 @@ func (s *FileStore) AddURLBatch(ctx context.Context, urls []URLRecord) error {
 }
 
 func (s *FileStore) GetUserURLs(ctx context.Context) ([]URLRecord, error) {
-	userID, ok := ctx.Value(appContext.KeyUserID).(string)
+	userID, ok := ctx.Value(appcontext.KeyUserID).(string)
 	if !ok {
 		return nil, ErrNoUserID
 	}
@@ -120,13 +120,13 @@ func (s *FileStore) GetUserURLs(ctx context.Context) ([]URLRecord, error) {
 	var urls []URLRecord
 	scanner := bufio.NewScanner(s.file)
 	for scanner.Scan() {
-			var url URLRecord
-			if err := json.Unmarshal(scanner.Bytes(), &url); err == nil && url.CreatorID == userID {
-					urls = append(urls, URLRecord{ShortURL: url.ShortURL, OriginalURL: url.OriginalURL})
-			}
+		var url URLRecord
+		if err := json.Unmarshal(scanner.Bytes(), &url); err == nil && url.CreatorID == userID {
+			urls = append(urls, URLRecord{ShortURL: url.ShortURL, OriginalURL: url.OriginalURL})
+		}
 	}
 	if err := scanner.Err(); err != nil {
-			return nil, err
+		return nil, err
 	}
 	return urls, nil
 }
