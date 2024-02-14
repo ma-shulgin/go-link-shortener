@@ -1,12 +1,14 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/ma-shulgin/go-link-shortener/internal/appcontext"
 	"github.com/ma-shulgin/go-link-shortener/internal/logger"
 	"github.com/ma-shulgin/go-link-shortener/internal/storage"
 	"go.uber.org/zap"
@@ -22,6 +24,7 @@ func RootRouter(urlStorage storage.URLStore, baseURL string) chi.Router {
 	r.Get("/{id}", handleRedirect(urlStorage))
 	r.Get("/api/user/urls", handleUserUrls(urlStorage, baseURL))
 	r.Post("/", handleShorten(urlStorage, baseURL))
+	r.Delete("/api/user/urls", handleDeleteUserUrls(urlStorage))
 	r.Post("/api/shorten", handleAPIShorten(urlStorage, baseURL))
 	r.Post("/api/shorten/batch", handleBatchShorten(urlStorage, baseURL))
 
@@ -30,22 +33,22 @@ func RootRouter(urlStorage storage.URLStore, baseURL string) chi.Router {
 
 func handleUserUrls(urlStorage storage.URLStore, baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			urls, err := urlStorage.GetUserURLs(ctx)
-			if err != nil {
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-					return
-			}
-
-			if len(urls) == 0 {
-					w.WriteHeader(http.StatusUnauthorized)
-					return
-			}
-			for i := range urls {
-				urls[i].ShortURL = baseURL + "/" + urls[i].ShortURL
+		ctx := r.Context()
+		urls, err := urlStorage.GetUserURLs(ctx)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
 		}
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(urls)
+
+		if len(urls) == 0 {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		for i := range urls {
+			urls[i].ShortURL = baseURL + "/" + urls[i].ShortURL
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(urls)
 	}
 }
 
@@ -61,15 +64,48 @@ func handlePing(urlStorage storage.URLStore) http.HandlerFunc {
 	}
 }
 
-func handleRedirect(urlStorage storage.URLStore) http.HandlerFunc {
+func handleDeleteUserUrls(urlStorage storage.URLStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx:= r.Context()
-		urlID := chi.URLParam(r, "id")
-		if originalURL, ok := urlStorage.GetURL(ctx,urlID); ok {
-			http.Redirect(w, r, originalURL, http.StatusTemporaryRedirect)
+		// evading r.context cancelation after sending response
+		ctx := context.WithValue(
+			context.Background(),
+			appcontext.KeyUserID,
+			r.Context().Value(appcontext.KeyUserID),
+		)
+
+		var shortURLs []string
+		dec := json.NewDecoder(r.Body)
+		if err := dec.Decode(&shortURLs); err != nil {
+			logger.Log.Error("cannot decode request JSON body", zap.Error(err))
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		http.Error(w, "Bad request", http.StatusBadRequest)
+
+		go func(ctx context.Context) {
+			if err := urlStorage.DeleteURLs(ctx, shortURLs); err != nil {
+				logger.Log.Error("Failed to delete URLs", zap.Error(err))
+			}
+		}(ctx)
+
+		w.WriteHeader(http.StatusAccepted)
+	}
+}
+
+func handleRedirect(urlStorage storage.URLStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		urlID := chi.URLParam(r, "id")
+		originalURL, err := urlStorage.GetURL(ctx, urlID)
+		if err != nil {
+			if errors.Is(err, storage.ErrDeleted) {
+				http.Error(w, "URL is deleted", http.StatusGone)
+				return
+			} else {
+				http.Error(w, "URL not found", http.StatusBadRequest)
+				return
+			}
+		}
+		http.Redirect(w, r, originalURL, http.StatusTemporaryRedirect)
 	}
 }
 
@@ -95,7 +131,7 @@ func handleAPIShorten(urlStorage storage.URLStore, baseURL string) http.HandlerF
 		defer r.Body.Close()
 
 		urlID := GenerateShortURLID(req.URL)
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		err := urlStorage.AddURL(ctx, req.URL, urlID)
 		if err != nil {
@@ -134,7 +170,7 @@ type batchResponse struct {
 
 func handleBatchShorten(urlStorage storage.URLStore, baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx:= r.Context()
+		ctx := r.Context()
 		var req []batchRequest
 		dec := json.NewDecoder(r.Body)
 		if err := dec.Decode(&req); err != nil {

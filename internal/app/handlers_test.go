@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -20,7 +21,9 @@ func TestRootRouter(t *testing.T) {
 	token, err := GenerateJWT("test_user")
 	require.NoError(t, err)
 
-	store, err := storage.InitFileStore("/tmp/test_db.json")
+	filePath := "/tmp/test_db.json"
+	os.Remove(filePath)
+	store, err := storage.InitFileStore(filePath)
 	require.NoError(t, err)
 	defer store.Close()
 
@@ -102,7 +105,7 @@ func TestRootRouter(t *testing.T) {
 		},
 		{
 			name:         "Unsupported Method",
-			method:       http.MethodDelete,
+			method:       http.MethodPut,
 			path:         "/",
 			expectedCode: http.StatusMethodNotAllowed,
 			expectedBody: "",
