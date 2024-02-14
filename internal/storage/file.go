@@ -4,21 +4,21 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 
+	"github.com/ma-shulgin/go-link-shortener/internal/appcontext"
 	"github.com/ma-shulgin/go-link-shortener/internal/logger"
 )
 
 type FileStore struct {
-	file   *os.File
-	urlMap map[string]string
-	nextID int
+	file        *os.File
+	memoryStore *MemoryStore
 }
 
 func InitFileStore(filePath string) (*FileStore, error) {
 	store := &FileStore{
-		urlMap: make(map[string]string),
-		nextID: 1,
+		memoryStore: InitMemoryStore(),
 	}
 
 	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
@@ -26,45 +26,54 @@ func InitFileStore(filePath string) (*FileStore, error) {
 		return nil, err
 	}
 
-	maxID := 0
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		var record URLRecord
 		if err := json.Unmarshal(scanner.Bytes(), &record); err != nil {
 			return nil, err
 		}
+		store.memoryStore.AddURL(context.WithValue(context.Background(), appcontext.KeyUserID, record.CreatorID), record.OriginalURL, record.ShortURL)
 
-		if record.UUID > maxID {
-			maxID = record.UUID
-		}
-		store.urlMap[record.ShortURL] = record.OriginalURL
 	}
 
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
 
-	store.nextID = maxID + 1
 	store.file = file
 
 	return store, nil
 }
 
 func (s *FileStore) AddURL(ctx context.Context, originalURL, shortURL string) error {
-	if _, exists := s.urlMap[shortURL]; exists {
-		logger.Log.Warnf("short URL already exists: %s", shortURL)
-		return nil
+	record, err := s.memoryStore.addAndReturnURL(ctx, originalURL, shortURL)
+	if err != nil {
+		return err
+	}
+	return s.appendRecord(record)
+}
+
+func (s *FileStore) DeleteURLs(ctx context.Context, shortURLs []string) error {
+	if err := s.memoryStore.DeleteURLs(ctx, shortURLs); err != nil {
+		return err
+	}
+	if err := s.file.Truncate(0); err != nil {
+		return err
+	}
+	if _, err := s.file.Seek(0, io.SeekStart); err != nil {
+		return err
 	}
 
-	s.urlMap[shortURL] = originalURL
-
-	record := URLRecord{
-		UUID:        s.nextID,
-		ShortURL:    shortURL,
-		OriginalURL: originalURL,
+	for _, record := range s.memoryStore.urlMap {
+		if err := s.appendRecord(&record); err != nil {
+			return err
+		}
 	}
+	return nil
+}
 
-	data, err := json.Marshal(record)
+func (s *FileStore) appendRecord(record *URLRecord) error {
+	data, err := json.Marshal(*record)
 	if err != nil {
 		logger.Log.Errorf("error marshaling JSON: %w", err)
 		return err
@@ -75,13 +84,11 @@ func (s *FileStore) AddURL(ctx context.Context, originalURL, shortURL string) er
 		return err
 	}
 
-	s.nextID++
 	return nil
 }
 
-func (s *FileStore) GetURL(ctx context.Context, shortURL string) (string, bool) {
-	url, ok := s.urlMap[shortURL]
-	return url, ok
+func (s *FileStore) GetURL(ctx context.Context, shortURL string) (string, error) {
+	return s.memoryStore.GetURL(ctx, shortURL)
 }
 
 func (s *FileStore) Close() error {
@@ -103,4 +110,8 @@ func (s *FileStore) AddURLBatch(ctx context.Context, urls []URLRecord) error {
 		}
 	}
 	return nil
+}
+
+func (s *FileStore) GetUserURLs(ctx context.Context) ([]URLRecord, error) {
+	return s.memoryStore.GetUserURLs(ctx)
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/ma-shulgin/go-link-shortener/internal/app"
 	"github.com/ma-shulgin/go-link-shortener/internal/logger"
 	"github.com/ma-shulgin/go-link-shortener/internal/storage"
+	"github.com/ma-shulgin/go-link-shortener/internal/workers"
 )
 
 func main() {
@@ -16,6 +17,7 @@ func main() {
 		panic(err)
 	}
 
+	app.InitializeJWT(cfg.JWTSecret)
 	logger.Log.Debugln("Parsed config:", cfg)
 
 	var urlStore storage.URLStore
@@ -33,8 +35,10 @@ func main() {
 	}
 	defer urlStore.Close()
 
+	delChan := workers.RunDeleteWorker(urlStore,100)
+
 	logger.Log.Infow("Starting server", "address", cfg.ServerAddress)
-	err = http.ListenAndServe(cfg.ServerAddress, app.RootRouter(urlStore, cfg.BaseURL))
+	err = http.ListenAndServe(cfg.ServerAddress, app.RootRouter(urlStore, cfg.BaseURL, delChan))
 	if err != nil {
 		logger.Log.Fatal(err)
 	}
