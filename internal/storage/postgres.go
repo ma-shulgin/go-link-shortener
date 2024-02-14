@@ -69,14 +69,17 @@ func (s *PostgresStore) GetURL(ctx context.Context, shortURL string) (string, er
 	var originalURL string
 	var deleteFlag bool
 	err := s.db.QueryRowContext(ctx, "SELECT original_url, is_deleted FROM urls WHERE short_url = $1", shortURL).Scan(&originalURL,&deleteFlag)
+	logger.Log.Debugln(shortURL, originalURL, deleteFlag)
 	if err != nil {
 		if errors.Is(err,sql.ErrNoRows) {
 			return "", ErrNotFound
-		} else if deleteFlag {
-			return "", ErrDeleted
 		} 
 		return "", err
 	}
+	if deleteFlag {
+		return "", ErrDeleted
+	} 
+	
 	return originalURL, nil
 }
 
