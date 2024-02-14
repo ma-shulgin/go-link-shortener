@@ -20,7 +20,7 @@ func RootRouter(urlStorage storage.URLStore, baseURL string) chi.Router {
 
 	r.Get("/ping", handlePing(urlStorage))
 	r.Get("/{id}", handleRedirect(urlStorage))
-	r.Get("/api/user/urls", handleUserUrls(urlStorage))
+	r.Get("/api/user/urls", handleUserUrls(urlStorage, baseURL))
 	r.Post("/", handleShorten(urlStorage, baseURL))
 	r.Post("/api/shorten", handleAPIShorten(urlStorage, baseURL))
 	r.Post("/api/shorten/batch", handleBatchShorten(urlStorage, baseURL))
@@ -28,7 +28,7 @@ func RootRouter(urlStorage storage.URLStore, baseURL string) chi.Router {
 	return r
 }
 
-func handleUserUrls(urlStorage storage.URLStore) http.HandlerFunc {
+func handleUserUrls(urlStorage storage.URLStore, baseURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 			urls, err := urlStorage.GetUserURLs(ctx)
@@ -41,7 +41,9 @@ func handleUserUrls(urlStorage storage.URLStore) http.HandlerFunc {
 					w.WriteHeader(http.StatusNoContent)
 					return
 			}
-
+			for i := range urls {
+				urls[i].ShortURL = baseURL + "/" + urls[i].ShortURL
+		}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(urls)
 	}

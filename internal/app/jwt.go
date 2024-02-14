@@ -53,7 +53,7 @@ func ValidateJWT(tokenString string) (*jwt.RegisteredClaims, error) {
 func JwtAuthMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie(authCookieName)
-		if err != nil || cookie.Value == "" {
+		if err != nil {
 			userID, err := GenerateRandomUserID(4)
 			if err != nil {
 				http.Error(w, "Could not generate userID", http.StatusInternalServerError)
