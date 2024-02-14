@@ -38,7 +38,7 @@ func handleUserUrls(urlStorage storage.URLStore, baseURL string) http.HandlerFun
 			}
 
 			if len(urls) == 0 {
-					w.WriteHeader(http.StatusNoContent)
+					w.WriteHeader(http.StatusUnauthorized)
 					return
 			}
 			for i := range urls {
